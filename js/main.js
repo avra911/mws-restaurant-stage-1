@@ -80,6 +80,13 @@ window.initMap = () => {
     center: loc,
     scrollwheel: false
   });
+  google.maps.event.addListener(self.map, "tilesloaded", function(){
+    setTimeout(function(){
+      document.querySelectorAll('#map *').forEach(function(item){
+        item.setAttribute('tabindex','-1');
+      });
+    }, 1000);
+  });
   updateRestaurants();
 }
 
