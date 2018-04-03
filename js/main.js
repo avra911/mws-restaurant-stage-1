@@ -82,6 +82,9 @@ window.initMap = () => {
   });
   google.maps.event.addListener(self.map, "tilesloaded", function(){
     setTimeout(function(){
+      document.querySelectorAll('#map iframe').forEach(function(item){
+          item.setAttribute('aria-label','Google Map');
+      });
       document.querySelectorAll('#map *').forEach(function(item){
         item.setAttribute('tabindex','-1');
       });
