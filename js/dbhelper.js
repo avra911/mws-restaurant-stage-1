@@ -8,27 +8,64 @@ class DBHelper {
    * Change this to restaurants.json file location on your server.
    */
   static get DATABASE_URL() {
-    const port = 8000 // Change this to your server port
-    return `http://localhost:${port}/data/restaurants.json`;
+    const port = 1337;
+    return `http://localhost:${port}/restaurants`;
+  }
+
+  /**
+   * IndexedDB Promised
+   */
+  static get dbPromise() {
+    return DBHelper.openDatabase();
+  }
+  static openDatabase() {
+    if (!navigator.serviceWorker) {
+      return Promise.resolve();
+    }
+
+    return idb.open('restaurants', 1, function(upgradeDb) {
+      upgradeDb.createObjectStore('all-restaurants', {keyPath: 'id'});
+    });
+
+  }
+
+  /**
+   * Get all restaurants from IndexedDB first
+   */
+  static getRestaurantsfromIDB(callback) {    
+    DBHelper.dbPromise.then(db => {
+      if (!db) callback(null, null);
+      const tx = db.transaction('all-restaurants');
+      const store = tx.objectStore('all-restaurants');
+      store.getAll().then(results => {
+        callback(null, results);
+      });  
+    });
   }
 
   /**
    * Fetch all restaurants.
    */
   static fetchRestaurants(callback) {
-    let xhr = new XMLHttpRequest();
-    xhr.open('GET', DBHelper.DATABASE_URL);
-    xhr.onload = () => {
-      if (xhr.status === 200) { // Got a success response from server!
-        const json = JSON.parse(xhr.responseText);
-        const restaurants = json.restaurants;
-        callback(null, restaurants);
-      } else { // Oops!. Got an error from server.
-        const error = (`Request failed. Returned status of ${xhr.status}`);
-        callback(error, null);
+    fetch(DBHelper.DATABASE_URL).then(response => {
+      if (response.status === 200){
+        response.json().then(json => {
+
+          this.dbPromise.then(db => {
+            if (!db) return;
+            const tx = db.transaction('all-restaurants', 'readwrite');
+            const store = tx.objectStore('all-restaurants');
+            json.forEach(restaurant => {
+              store.put(restaurant);
+            })
+          });
+
+          callback(null, json);
+        }).catch(error => callback(error, null));
+      } else {
+        callback(`Request failed. Returned status of ${response.status}`, null);
       }
-    };
-    xhr.send();
+    }).catch(error => callback(error, null));
   }
 
   /**
@@ -150,7 +187,9 @@ class DBHelper {
    * Restaurant image URL.
    */
   static imageUrlForRestaurant(restaurant) {
-    return (`/img/${restaurant.photograph}`);
+    return (restaurant.photograph === undefined ? 
+      'http://via.placeholder.com/800x600' : 
+      `/img/${restaurant.photograph}.jpg`);
   }
 
   /**
